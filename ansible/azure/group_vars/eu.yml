@@ -1,0 +1,3 @@
+---
+region: westeurope
+rg_name: "rg_{{ inventory_hostname }}"

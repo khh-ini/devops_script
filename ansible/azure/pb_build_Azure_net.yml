@@ -1,0 +1,16 @@
+---
+- name: Build Azure Network Infrasctructure
+  hosts: all
+  connection: local
+  vars_files:
+    - Azure_secret.yml
+  tasks:
+    - name: Create Resource group
+      azure_rm_resourcegroup:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        location: "{{ region }}"
+        subscription_id: "{{ subscription_id }}"
+        name: "{{ rg_name }}"
+        state: "{{ state | default('present') }}"

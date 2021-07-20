@@ -1,0 +1,148 @@
+---
+- name: Create VMs
+  hosts: localhost
+  connection: local
+  vars_files:
+    - ./vars.yml
+    - ./Azure_secret.yml
+  tasks:
+    - name: Create a resource group
+      azure_rm_resourcegroup:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        location: "{{ location }}"
+        subscription_id: "{{ subscription_id }}"
+        name: "{{ resource_group }}"
+        location: "{{ location }}"
+        state: "{{ state | default('present') }}"
+
+    - name: Create Virtual Network
+      azure_rm_virtualnetwork:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        location: "{{ location }}"
+        subscription_id: "{{ subscription_id }}"
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "{{ virtual_network_name }}"
+        address_prefixes: "10.0.0.0/16"
+    
+    - name: Create subnets
+      azure_rm_subnet:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        virtual_network: "{{ virtual_network_name }}"
+        name: "{{ virtual_network_name }}_subnet"
+        address_prefix: "10.0.1.0/24"
+
+    - name: Create Network Secuiryt Group that allows HTTP and SSH
+      azure_rm_securitygroup:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "{{ vm_name }}"
+        rules:
+          - name: HTTP
+            protocol: Tcp
+            destination_port_range: 80
+            access: Allow
+            priority: 1002
+            direction: Inbound
+          - name: SSH
+            protocol: Tcp
+            destination_port_range: 22
+            access: Allow
+            priority: 101
+            direction: Inbound
+    
+    
+    - name: create virtual network interface for masternode
+      azure_rm_networkinterface:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "{{ network_interface_name }}_{{ vm_name }}{{ item }}"
+        virtual_network: "{{ virtual_network_name }}"
+        subnet: "{{ virtual_network_name }}_subnet"
+        security_group: "{{ vm_name }}"
+      loop:
+        - 1
+        - 2
+
+    - name: Create public ip
+      azure.azcollection.azure_rm_publicipaddress:
+        resource_group: "{{ resource_group }}"
+        sku: standard
+        allocation_method: Static
+        name: publicip001
+        
+    - name: create virtual network interface for lb_haproxy
+      azure_rm_networkinterface:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "{{ network_interface_name }}_lb"
+        virtual_network: "{{ virtual_network_name }}"
+        subnet: "{{ virtual_network_name }}_subnet"
+        public_ip_name: publicip001
+        security_group: "{{ vm_name }}"
+    
+    - name: Create VM for masternodes
+      azure_rm_virtualmachine:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "{{ vm_name }}{{ item }}"
+        admin_username: "{{ admin_username }}"
+        admin_password: "{{ admin_password }}"
+        vm_size: Standard_A2_v2
+        network_interfaces: "{{ network_interface_name }}_{{ vm_name }}{{ item }}"
+        image:
+          offer: UbuntuServer
+          publisher: Canonical
+          sku: 18.04-LTS
+          version: latest
+      loop:
+        - 1
+        - 2
+
+    - name: Create VM for Loadbalancer
+      azure_rm_virtualmachine:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "lbhaproxy"
+        admin_username: "{{ admin_username }}"
+        admin_password: "{{ admin_password }}"
+        ssh_password_enabled: no
+        ssh_public_keys: 
+          - path: /home/khhini/.ssh/authorized_keys
+            key_data: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC1Y0WF5VXrgrzSptPzx+JCM53MhIOSepfzmeqKAAZoL7gOQ4ft/lCAX5ghaqzR3gQhp9n/nJIy5NGw3aNr6pA+zpweod0v4ueDmH0qWtKQiRytLwRYUcIvYlgivmuGTgJi6ZL2LGSL06AoP1UnqdF33edl8M2TJEzDJb4JabkHJmAOv3S5+CA6wpva9zZs3hnax02GqNMBZpa3Rm0Z6gc0PpViCCPR1TGQ8ZqAsI1/yosGyPgLIlqPAPDFpUO/xkStb/9r262sqOVUrZEreaW9MK689GuHrDnZO4U1GPc/OMck4QwDuvnqWdL6MAeheXp+HWf7ol4AI1LCKpyT8GlkI4CcKz3yHPRhPHYbrwfD8qeclXt0qSOzEM90zWqop3U3FLWaEtT6tMauh7vIcatmhWnektKzajk+412nf9cRl3zkgN1uArWUuS3vbmcS6Ue/8Sbpfh1h5etcOv3F8ZVQFIMx7spGHI74akd8rl6mcUOfrOkMPzYtpzp9LmyYPkZsN45RsbnEl9kuDoxDKIsfCa7G8SfmasQmJz4fJOB6yNq9YdTESjvbYV0GDMazyvUTzXHNVX93vax9GYy6lsqoWEMid4orgg3NCg1oPjHTkozw+I9Awr0W/gccDfvgU0190jVLMlTEodu05t5GH8NR5LsNQvta+IBx3671oUzTAw== khhini@x456urk"
+        vm_size: Standard_B2s
+        network_interfaces: "{{ network_interface_name }}_lb"
+        image:
+          offer: UbuntuServer
+          publisher: Canonical
+          sku: 18.04-LTS
+          version: latest

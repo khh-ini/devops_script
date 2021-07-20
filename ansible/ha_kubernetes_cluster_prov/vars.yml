@@ -1,0 +1,7 @@
+resource_group: ha_kubernetes_clusters
+location: eastus
+virtual_network_name: kubeVnet
+subnet_name: kubeSubnet
+network_interface_name: vm_ic
+vm_name: masternode
+

@@ -14,3 +14,102 @@
         subscription_id: "{{ subscription_id }}"
         name: "{{ rg_name }}"
         state: "{{ state | default('present') }}"
+
+    - name: Create Virtual Networks
+      azure_rm_virtualnetwork:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        location: "{{ region }}"
+        subscription_id: "{{ subscription_id }}"
+        resource_group: "{{ rg_name }}"
+        name: "{{ vnet_name }}"
+        address_prefixes_cidr: "{{ vnet_cidr }}"
+        state: "{{ state | default('present') }}"
+
+    - name: Create Subnets
+      azure_rm_subnet:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        resource_group: "{{ rg_name }}"
+        name: "{{ item.name }}"
+        virtual_network_name: "{{ vnet_name }}"
+        address_prefix_cidr: "{{ item.cidr }}"
+        state: "{{ state | default('present') }}"
+      loop: "{{ subnets }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Create Custom Route Table
+      azure_rm_routetable:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        resource_group: "{{ rg_name }}"
+        name: "{{ item.name }}"
+        state: "{{ state | default('present') }}"
+      loop: "{{ route_tables }}"
+      tags: routing
+
+    - name: Privision Routes
+      azure_rm_route:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        resource_group: "{{ rg_name }}"
+        route_table_name: "{{ item.0.name }}"
+        name: "{{ item.1.name }}"
+        address_prefix: "{{ item.1.prefix }}"
+        next_hop_type: "{{ item.1.nh }}"
+        state: "{{ state | default('present') }}"
+      with_subelements:
+        - "{{ route_tables }}"
+        - routes
+      tags: routing
+    
+    - name: Attach Route Table to Subnet
+      azure_rm_subnet:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        resource_group: "{{ rg_name }}"
+        name: "{{ item.subnet }}"
+        virtual_network_name: "{{ vnet_name }}"
+        route_table: "{{ item.name }}"
+        state: "{{ state | default('present') }}"
+      loop: "{{ route_tables }}"
+      loop_control:
+        label: "{{ item.name }}"
+      tags: routing
+
+    - name: Create new Security Group
+      azure_rm_securitygroup:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        resource_group: "{{ rg_name }}"
+        name: "{{ item.name }}"
+        purge_rules: yes
+        rules: "{{ item.rules }}"
+      loop: "{{ acls }}"
+      tags: security
+    
+    - name: Attach Security Group to Subnet
+      azure_rm_subnet:
+        tenant: "{{ tenant_id }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        resource_group: "{{ rg_name }}"
+        name: "{{ item.subnet }}"
+        virtual_network_name: "{{ vnet_name }}"
+        security_group: "{{ item.name }}"
+        state: "{{ state | default('present') }}"
+      loop: "{{ acls }}"
+      tags: security

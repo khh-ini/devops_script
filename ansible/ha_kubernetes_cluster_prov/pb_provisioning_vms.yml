@@ -57,9 +57,13 @@
         virtual_network: "{{ virtual_network_name }}"
         subnet: "{{ virtual_network_name }}_subnet"
         security_group: "{{ vm_name }}"
+        ip_configurations:
+          - name: "masterNode_privateIP{{item}}"
+            private_ip_address: "10.0.1.{{item}}"
+            private_ip_allocation_method: Static
       loop:
-        - 1
-        - 2
+        - 10
+        - 20
 
     - name: create virtual network interface for workernode
       azure_rm_networkinterface:
@@ -69,6 +73,10 @@
         virtual_network: "{{ virtual_network_name }}"
         subnet: "{{ virtual_network_name }}_subnet"
         security_group: "{{ vm_name }}"
+        ip_configurations:
+          - name: "workerNodes_privateIP"
+            private_ip_address: "10.0.1.30"
+            private_ip_allocation_method: Static
 
     - name: Create public ip
       azure.azcollection.azure_rm_publicipaddress:
@@ -84,8 +92,12 @@
         name: "if_lb"
         virtual_network: "{{ virtual_network_name }}"
         subnet: "{{ virtual_network_name }}_subnet"
-        public_ip_name: publicIp_lb
         security_group: "{{ vm_name }}"
+        ip_configurations:
+          - name: "lb_privateIP"
+            public_ip_address_name: publicIp_lb
+            private_ip_address: "10.0.1.40"
+            private_ip_allocation_method: Static
     
     - name: Create VM for masternodes
       azure_rm_virtualmachine:
@@ -102,8 +114,8 @@
           sku: 18.04-LTS
           version: latest
       loop:
-        - 1
-        - 2
+        - 10
+        - 20
     
     - name: Create VM for workernodes
       azure_rm_virtualmachine:

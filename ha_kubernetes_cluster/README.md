@@ -1,4 +1,4 @@
-# Creating High Availability Kubernets Cluster on Azure VMs
+# Creating High Availability Kubernets Cluster v1.15 on Azure VMs
 
 ## Azure Environment
 
@@ -68,7 +68,7 @@ sysctl --system
   apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
   add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-  apt update && apt install -y docker-ce=5:19.03.10~3-0~ubuntu-focal containerd.io
+  apt update && apt install -y docker-ce=5:18.09.8~3-0~ubuntu-bionic containerd.io
 }
 ```
 
@@ -83,7 +83,7 @@ sysctl --system
 
 #### Install Kubernetes components
 ```
-apt update && apt install -y kubeadm=1.19.2-00 kubelet=1.19.2-00 kubectl=1.19.2-00
+apt update && apt install -y kubeadm=1.15.12-00 kubelet=1.15.12-00 kubectl=1.15.12-00
 ```
 
 ## On any one of the Kubernetes master node
@@ -94,7 +94,22 @@ kubeadm init --control-plane-endpoint="10.0.1.40:6443" --upload-certs --apiserve
 ```
 
 #### Deploy Calico network
+Install the Tigera Calico operator and custom resource definitions.
 ```
-kubectl --kubeconfig=/etc/kubernetes/admin.conf create -f https://docs.projectcalico.org/v3.15/manifests/calico.yaml
+kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
 
 ```
+
+Install Calico by creating the necessary custom resource. For more information on configuration options available in this manifest. https://docs.projectcalico.org/reference/installation/api
+```
+kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml
+```
+
+Confirm that all of the pods are running with the following command.
+```
+watch kubectl get pods -n calico-system
+```
+
+## Join other nodes to the cluster 
+
+# Upgrade Kubernetes Cluster to v1.19

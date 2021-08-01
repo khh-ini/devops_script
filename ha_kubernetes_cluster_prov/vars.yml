@@ -1,6 +1,0 @@
-resource_group: ha_kubernetes_clusters
-location: southeastasia
-virtual_network_name: kubeVnet
-subnet_name: kubeSubnet
-vm_name: masternode
-

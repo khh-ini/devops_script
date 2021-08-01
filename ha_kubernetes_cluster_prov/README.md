@@ -1,1 +1,0 @@
-Creating High Availability Kubernets Cluster on Azure VMs

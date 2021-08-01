@@ -1,0 +1,148 @@
+---
+- name: Create VMs
+  hosts: localhost
+  connection: local
+  vars_files:
+    - ./vars.yml
+    - ./Azure_secret.yml
+  tasks:
+    - name: Create a resource group
+      azure_rm_resourcegroup:
+        location: "{{ location }}"
+        name: "{{ resource_group }}"
+        location: "{{ location }}"
+        state: "{{ state | default('present') }}"
+
+    - name: Create Virtual Network
+      azure_rm_virtualnetwork:
+        location: "{{ location }}"
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "{{ virtual_network_name }}"
+        address_prefixes: "10.0.0.0/16"
+    
+    - name: Create subnets
+      azure_rm_subnet:
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        virtual_network: "{{ virtual_network_name }}"
+        name: "{{ virtual_network_name }}_subnet"
+        address_prefix: "10.0.1.0/24"
+
+    - name: Create Network Secuiryt Group that allows HTTP and SSH
+      azure_rm_securitygroup:
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "{{ vm_name }}"
+        rules:
+          - name: HTTP
+            protocol: Tcp
+            destination_port_range: 80
+            access: Allow
+            priority: 1002
+            direction: Inbound
+          - name: SSH
+            protocol: Tcp
+            destination_port_range: 22
+            access: Allow
+            priority: 101
+            direction: Inbound
+    
+    
+    - name: create virtual network interface for masternode
+      azure_rm_networkinterface:
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "if_masternodes{{ item }}"
+        virtual_network: "{{ virtual_network_name }}"
+        subnet: "{{ virtual_network_name }}_subnet"
+        security_group: "{{ vm_name }}"
+        ip_configurations:
+          - name: "masterNode_privateIP{{item}}"
+            private_ip_address: "10.0.1.{{item}}"
+            private_ip_allocation_method: Static
+      loop:
+        - 10
+        - 20
+
+    - name: create virtual network interface for workernode
+      azure_rm_networkinterface:
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "if_workrenodes"
+        virtual_network: "{{ virtual_network_name }}"
+        subnet: "{{ virtual_network_name }}_subnet"
+        security_group: "{{ vm_name }}"
+        ip_configurations:
+          - name: "workerNodes_privateIP"
+            private_ip_address: "10.0.1.30"
+            private_ip_allocation_method: Static
+
+    - name: Create public ip
+      azure.azcollection.azure_rm_publicipaddress:
+        resource_group: "{{ resource_group }}"
+        sku: standard
+        allocation_method: Static
+        name: publicIp_lb
+        
+    - name: create virtual network interface for lb_haproxy
+      azure_rm_networkinterface:
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "if_lb"
+        virtual_network: "{{ virtual_network_name }}"
+        subnet: "{{ virtual_network_name }}_subnet"
+        security_group: "{{ vm_name }}"
+        ip_configurations:
+          - name: "lb_privateIP"
+            public_ip_address_name: publicIp_lb
+            private_ip_address: "10.0.1.40"
+            private_ip_allocation_method: Static
+    
+    - name: Create VM for masternodes
+      azure_rm_virtualmachine:
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "masterNodes{{ item }}"
+        admin_username: "{{ admin_username }}"
+        admin_password: "{{ admin_password }}"
+        vm_size: Standard_A2_v2
+        network_interfaces: "if_masternodes{{ item }}"
+        image:
+          offer: UbuntuServer
+          publisher: Canonical
+          sku: 18.04-LTS
+          version: latest
+      loop:
+        - 10
+        - 20
+    
+    - name: Create VM for workernodes
+      azure_rm_virtualmachine:
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "workerNodes"
+        admin_username: "{{ admin_username }}"
+        admin_password: "{{ admin_password }}"
+        vm_size: Standard_B1s
+        network_interfaces: "if_workrenodes"
+        image:
+          offer: UbuntuServer
+          publisher: Canonical
+          sku: 18.04-LTS
+          version: latest
+
+    - name: Create VM for loadbalancer
+      azure_rm_virtualmachine:
+        state: "{{ state | default('present') }}"
+        resource_group: "{{ resource_group }}"
+        name: "lbHaProxy"
+        admin_username: "{{ admin_username }}"
+        admin_password: "{{ admin_password }}"
+        vm_size: Standard_B1s
+        network_interfaces: "if_lb"
+        image:
+          offer: UbuntuServer
+          publisher: Canonical
+          sku: 18.04-LTS
+          version: latest

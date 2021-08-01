@@ -1,0 +1,17 @@
+[kube_cluster]
+haproxy_server
+master_node1
+master_node2
+worker_node1
+worker_node2
+
+[masters]
+master_node1
+master_node2
+
+[workers]
+worker_node1
+worker_node2
+
+[lb]
+haproxy_server

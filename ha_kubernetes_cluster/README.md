@@ -89,9 +89,28 @@ apt update && apt install -y kubeadm=1.15.12-00 kubelet=1.15.12-00 kubectl=1.15.
 ## On any one of the Kubernetes master node
 #### Initialize Kubernetes Cluster
 ```
+mkdir /etc/kubernetes/kubeadm
+```
+create a configuration file to initialize the cluster
+```
+# /etc/kubernetes/kubeadm/kubeadm-config.yaml
+
+apiVersion: kubeadm.k8s.io/v1beta1
+kind: ClusterConfiguration
+kubernetesVersion: stable
+controlPlaneEndpoint: "10.0.1.4:6443"
+networking:
+  podSubnet: 192.168.0.0/16
+```
+
+initialize kubernetes cluster
+```
+kubeadm init --config=/etc/kubernetes/kubeadm/kubeadm-config.yaml --upload-certs
+```
+<!-- ```
 kubeadm init --control-plane-endpoint="10.0.1.40:6443" --upload-certs --apiserver-advertise-address=10.0.1.10 --pod-network-cidr=192.168.0.0/16
 
-```
+``` -->
 
 #### Deploy Calico network
 Install the Tigera Calico operator and custom resource definitions.

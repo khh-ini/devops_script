@@ -131,4 +131,75 @@ watch kubectl get pods -n calico-system
 
 ## Join other nodes to the cluster 
 
+
+# Deploy webserver to kubernetes cluster
+#### create webserver.yaml
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: webserver
+  name: webserver
+spec:
+  selector:
+    matchLabels:
+      app: webserver
+  replicas: 2 
+  template:
+    metadata:
+      labels:
+        app: webserver
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+```
+
+#### create deployment with this command
+```
+kubectl create -f webserver.yaml
+```
+
+#### create kubernetes services for webserver (webserver-svc.yaml)
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-service
+  labels:
+    run: web-service
+spec:
+  type: NodePort
+  ports:
+  - port: 80:32200
+    protocol: TCP
+  selector:
+    app: webserver 
+```
+
+#### deploy service wiht this command
+```
+kubectl create -f webserver-svc.yaml
+```
+
+## Load balancing the webserver
+#### add this to haproxy configurations file
+```
+frontend weserver-frontend
+    bind 10.0.1.40:[weserver NodePort]
+    mode tcp
+    option tcplog
+    default_backend weserver-backend
+
+backend weserver-backend
+    mode tcp
+    option tcp-check
+    balance roundrobin
+    server masterNodes10 10.0.1.10:[weserver NodePort] check fall 3 rise 2
+    server masterNOdes20 10.0.1.20:[weserver NodePort] check fall 3 rise 2
+```
+
 # Upgrade Kubernetes Cluster to v1.19

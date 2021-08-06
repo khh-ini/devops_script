@@ -1,0 +1,4 @@
+- name: Creating Kubernetes Clusters
+  hosts: all
+  connection: local
+  

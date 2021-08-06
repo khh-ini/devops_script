@@ -113,7 +113,11 @@ kubeadm init --control-plane-endpoint="10.0.1.40:6443" --upload-certs --apiserve
 ``` -->
 
 #### Deploy Calico network
-Install the Tigera Calico operator and custom resource definitions.
+Install Calico Network
+```
+kubectl apply -f https://docs.projectcalico.org/archive/v3.12/manifests/calico.yaml
+```
+<!-- Install the Tigera Calico operator and custom resource definitions.
 ```
 kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
 
@@ -127,7 +131,7 @@ kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml
 Confirm that all of the pods are running with the following command.
 ```
 watch kubectl get pods -n calico-system
-```
+``` -->
 
 ## Join other nodes to the cluster 
 
@@ -203,3 +207,173 @@ backend weserver-backend
 ```
 
 # Upgrade Kubernetes Cluster to v1.19
+to upgrade from v1.15 to v1.19 the cluster must be upgraded gradually from v1.15 to v1.16, from v1.16 to v1.17 and so on
+#### Check for latest kubernetes release version
+```
+sudo apt-cache madison kubeadm
+```
+
+## Upgrade Master Nodes
+### Upgrade kubeadm
+```
+
+# Unholds to upgrade kubeadm package
+
+sudo apt-mark unhold kubeadm
+
+
+# Install the new version of kubeadm
+
+sudo apt update && sudo apt install -y kubeadm=1.xx.xx-00
+
+ 
+# Hold the package to prevent accidential upgrade
+
+sudo apt-mark hold kubeadm
+
+ 
+# Fetches the control plane component versions to which we can update to.
+
+sudo kubeadm upgrade plan
+
+ 
+# Upgrade kubeadm
+
+sudo kubeadm upgrade apply v1.xx.x
+
+```
+
+### Upgrade kubectl and kubelet
+```
+
+# Drain the control plane node
+
+kubectl drain [master_nodes] --ignore-daemonsets
+
+ 
+
+# Unholds to upgrade for kubelet and kubectl
+
+sudo apt-mark unhold kubelet kubectl
+
+ 
+
+# Install the new version of kubelet and kubectl
+
+sudo apt-get update && sudo apt-get install -y kubelet=1.xx.xx-00 kubectl=1.xx.xx-00
+
+ 
+
+# Hold the package to prevent accidential upgrade
+
+sudo apt-mark hold kubelet kubectl
+
+ 
+
+# Will reloads the systemd manager configuration
+
+sudo systemctl daemon-reload
+
+ 
+
+# Will restart the kubelet service
+
+sudo systemctl restart kubelet
+
+ 
+
+# Check the status of the service
+
+sudo systemctl status kubelet
+
+ 
+
+# Uncordon the cntrol plane node.
+
+kubectl uncordon [master_nodes]
+```
+
+## Upgrade worker nodes
+Note: worker nodes should not be upgraded simultaneously
+
+### Upgrade Kubeadm
+#### On worker nodes
+```
+
+# Update the repositiry
+
+sudo apt update
+
+ 
+
+# Unholds to upgrade kubeadm
+
+sudo apt-mark unhold kubeadm
+
+ 
+
+# Install the new version of kubeadm
+
+sudo apt update && sudo apt install -y kubeadm=1.xx.xx-00
+
+ 
+
+# Hold the package to prevent upgrade
+
+sudo apt-mark hold kubeadm
+
+ 
+
+# Upgrade the local configuration
+
+sudo kubeadm upgrade node
+```
+
+### Upgrade kubectl and kubelet
+#### On control plane node
+```
+# Drain the worker_node node
+
+kubectl drain [worker_nodes] --ignore-daemonsets --delete-emptydir-data
+```
+
+#### On worker nodes
+```
+
+# Unholds to upgrade kubelet and kubectl
+
+sudo apt-mark unhold kubelet kubectl
+
+ 
+
+# Install the new version of kubelet and kubectl
+
+sudo apt-get update && sudo apt-get install -y kubelet=1.xx.xx-00 kubectl=1.xx.xx-00
+
+ 
+
+# Hold the package to prevent upgrade
+
+sudo apt-mark hold kubelet kubectl
+
+ 
+
+# Will reload the systemd manager configuration
+
+sudo systemctl daemon-reload
+
+ 
+
+# Will restart the kubelet service
+
+sudo systemctl restart kubelet
+
+```
+
+#### on control plane node
+```
+# Uncordon the worker node to bring it online and run the below command on control plane node.
+
+kubectl uncordon [worker_nodes]
+
+```
